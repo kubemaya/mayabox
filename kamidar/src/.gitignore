@@ -1,0 +1,6 @@
+pics/
+last*
+__pycache__
+*.pem
+*.db
+*.json

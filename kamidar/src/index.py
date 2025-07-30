@@ -1,0 +1,196 @@
+from nicegui import run,ui, events
+from multiprocessing import Manager
+#import base64
+from PIL import Image
+import time
+from analyze import *
+import os
+
+ii = None
+color_input = None
+gps = None
+
+@ui.refreshable
+def show_history():
+    columns = [
+        {'name': 'latitude', 'label': 'Latitude', 'field': 'latitude'},
+        {'name': 'longitude', 'label': 'Longitude', 'field': 'longitude'},
+        {'name': 'image_source', 'label': 'Image Source', 'field': 'image_source'},
+        {'name': 'output_image', 'label': 'Output Image', 'field': 'output_image'},
+        {'name': 'field1', 'label': 'Field1', 'field': 'field1'},
+        {'name': 'field2', 'label': 'Field2', 'field': 'field2'},
+        {'name': 'field3', 'label': 'Field3', 'field': 'field3'},
+    ]
+    rows = get_reports()
+    table = ui.table(columns=columns, rows=rows, row_key='image_source').classes('w-full')
+
+@ui.refreshable
+def show_report():
+    ui.label('Report part')
+    data = get_analysis()
+    ui.label("Original image")
+    img_original = ui.image(data["image_source"]).classes('w-64')
+    ui.label("Detected objects")
+    try:
+        img_analysis = ui.image(data["result"]["output_image"]).classes('w-64')
+        report = ui.log(max_lines=10).classes('w-full')
+        report.push("Report Summary")
+        report.push("---------------")            
+        report.push("Field1: "+data["result"]["field1"])
+        report.push("Field2: "+data["result"]["field1"])
+        report.push("Field3: "+data["result"]["field1"])
+        ui.button('Save Report',on_click=lambda: save_report())
+    except:
+        print("Error when loading history")
+
+
+@ui.page('/')
+async def main_page():
+
+
+    async def start_computation(progressbar,va):
+        #progressbar.visible = True
+        result = await run.cpu_bound(analyze, queue)
+        ui.notify(result)
+        va.enable()
+        #progressbar.visible = False
+
+    async def set_analysis(panels,tab_analyze):
+        response = await ui.run_javascript('''
+            return await new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Geolocation is not supported by your browser'));
+                } else {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            resolve({
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude,
+                            });
+                        },
+                        () => {
+                            reject(new Error('Unable to retrieve your location'));
+                        }
+                    );
+                }
+            });
+        ''', timeout=30.0)
+        #ui.notify(f'Your location is {response["latitude"]}, {response["longitude"]}')
+        latitude = response["latitude"]
+        longitude = response["longitude"]
+        print(f'Your location is {latitude}, {longitude}')
+        gps.set_value(f"{latitude},{longitude}")
+        print(color_input.value)
+        print(ii.source)
+        store_analysis(latitude,longitude,color_input.value,ii.source,{})
+        panels.set_value(tab_analyze)
+        #run_analysis()
+
+    async def handle_upload(e: events.UploadEventArguments):
+        """Handles the uploaded image and displays it."""
+        name = "pics/img-"+str(int(time.time()))[5:]+".jpg"
+        if e.content:
+            data = e.content.read()
+            with open(name, "wb") as binary_file:
+                binary_file.write(data)
+            #b64_bytes = base64.b64encode(data)
+            #image_data = f'data:{e.type};base64,{b64_bytes.decode()}'
+            #ui.image(image_data).classes('w-64 h-64')
+            ii.set_source(name)
+
+        else:
+            ui.notify("No file uploaded.")
+    def delete_all():
+        os.system("rm pics/*;rm reports.json")
+        ui.notify("Images & History deleted, Please refresh the page")
+    def get_pixel(x_coord,y_coord):
+        print(ii.source)
+        try:
+            img_tmp = Image.open(ii.source) # Replace with your image file
+            pixels = img_tmp.load()
+            print("Pixels loaded")
+        except FileNotFoundError:
+            print("Error: Image file not found. Please check the path.")
+            exit()        
+        print(pixels)
+        pixel_color = pixels[x_coord, y_coord]
+        #print(pixel_color[0],pixel_color[1],pixel_color[2])
+        r=pixel_color[0]
+        g=pixel_color[1]
+        b=pixel_color[2]
+        print(f"\033[38;2;{r};{g};{b}mHello!\033[0m")
+        ui.notify(f"The color of the pixel at ({x_coord}, {y_coord}) is: {pixel_color}")
+        color_input.set_value('#%02x%02x%02x' % (r, g, b))
+
+    def handle_image_click(e: events.MouseEventArguments):
+        get_pixel(e.image_x,e.image_y)
+
+    def view_report():
+        panels.set_value(tab_report)
+        show_report.refresh()
+
+    queue = Manager().Queue()
+
+    with ui.tabs() as tabs:
+        tab_capture = ui.tab('capture', label='Capture', icon='photo_camera')
+        tab_analyze = ui.tab('analyze', label='Analyze', icon='image_search')
+        tab_report = ui.tab('report', label='Report', icon='article')
+        tab_history = ui.tab('history', label='History', icon='history')
+        tab_delete = ui.tab('clean', label='Clean', icon='delete')
+        #tab_locations = ui.tab('locations', label='Locations', icon='location_searching')
+        #tab_export = ui.tab('export', label='Export', icon='ios_share')
+
+    with ui.tab_panels(tabs, value=tab_capture).classes('w-full') as panels:
+        with ui.tab_panel(tab_capture):
+            ui.label('Content of Tab One')
+
+            ui.label('Take a picture with your phone')
+
+            ui.upload(on_upload=handle_upload, auto_upload=True) \
+                .props('accept="image/*" capture="camera"') \
+                .classes('w-full')
+            ui.label('Pick a color from the picture')
+            image_source = None 
+            ii = ui.interactive_image(image_source, on_mouse=handle_image_click,cross=True).classes('w-64')
+            
+                    
+        #    color_input = ui.color_input(label='Picked Color', on_change=lambda e: update_image_color(e.value))
+            color_input = ui.color_input(label='Picked Color')
+            gps = ui.input(label='GPS Coordinate', placeholder='GPS Coordinate',value="Pending")
+            ui.button('Save to Analyze', on_click=lambda: set_analysis(panels,tab_analyze))
+
+        with ui.tab_panel(tab_analyze):
+            ui.timer(0.1, callback=lambda: progressbar.set_value(queue.get() if not queue.empty() else progressbar.value))
+            # Create the UI
+            progressbar = ui.linear_progress(value=0).props('instant-feedback')
+            #progressbar.visible = False
+            va = ui.button('View Report', on_click=lambda: view_report())
+            va.disable()
+            ui.button('Analyze', on_click=lambda: start_computation(progressbar,va))
+
+        with ui.tab_panel(tab_report):
+            ui.label('Report')
+            show_report()
+
+        with ui.tab_panel(tab_history):
+            ui.label('Reports history')
+            show_history()
+
+        with ui.tab_panel(tab_delete):
+            ui.label('Delete analysis')
+            ui.button('Delete All',on_click=lambda: delete_all())            
+        #with ui.tab_panel(tab_locations):
+        #    ui.label('Near Locations')
+        #with ui.tab_panel(tab_export):
+        #    ui.label('Export to the cloud')
+        #    ui.button('Export reports')            
+
+
+ui.timer(5.0, show_history.refresh)
+
+#ui.run(host='0.0.0.0', port=8080, title='KAMIDAR')
+ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
+ssl_keyfile='key.pem', \
+ssl_certfile='cert.pem')
+#ui.run()
+
