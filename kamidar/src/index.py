@@ -5,10 +5,15 @@ from PIL import Image
 import time
 from analyze import *
 import os
+from random import randint
+
 
 ii = None
 color_input = None
 gps = None
+spinner = None
+color_input = None
+label_color = None
 
 @ui.refreshable
 def show_history():
@@ -26,7 +31,7 @@ def show_history():
 
 @ui.refreshable
 def show_report():
-    ui.label('Report part')
+    ui.label('Analysis Report')
     data = get_analysis()
     ui.label("Original image")
     img_original = ui.image(data["image_source"]).classes('w-64')
@@ -56,6 +61,26 @@ async def main_page():
         #progressbar.visible = False
 
     async def set_analysis(panels,tab_analyze):
+        print(color_input.value)
+        print(ii.source)
+        gps_pos = gps.value.split(",")
+        store_analysis(gps_pos[0],gps_pos[1],color_input.value,ii.source,{})
+        panels.set_value(tab_analyze)
+
+        #progressbar = ui.linear_progress(value=0).props('instant-feedback')
+        progressbar.value=0
+        #progressbar.visible = False
+        #va = ui.button('View Report', on_click=lambda: view_report())
+        va.disable()
+        #run_analysis()
+
+    async def handle_upload(e: events.UploadEventArguments):
+        """Handles the uploaded image and displays it."""
+        #global spinner
+        gps.set_value("Pending")
+        spinner.visible = True
+        ui.notify("Loading GPS coordinate",position="top")
+
         response = await ui.run_javascript('''
             return await new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
@@ -80,14 +105,7 @@ async def main_page():
         longitude = response["longitude"]
         print(f'Your location is {latitude}, {longitude}')
         gps.set_value(f"{latitude},{longitude}")
-        print(color_input.value)
-        print(ii.source)
-        store_analysis(latitude,longitude,color_input.value,ii.source,{})
-        panels.set_value(tab_analyze)
-        #run_analysis()
 
-    async def handle_upload(e: events.UploadEventArguments):
-        """Handles the uploaded image and displays it."""
         name = "pics/img-"+str(int(time.time()))[5:]+".jpg"
         if e.content:
             data = e.content.read()
@@ -97,12 +115,13 @@ async def main_page():
             #image_data = f'data:{e.type};base64,{b64_bytes.decode()}'
             #ui.image(image_data).classes('w-64 h-64')
             ii.set_source(name)
-
+            spinner.visible = False
+            ui.notify("Loaded GPS coordinate",position="top")
         else:
             ui.notify("No file uploaded.")
     def delete_all():
         os.system("rm pics/*;rm reports.json")
-        ui.notify("Images & History deleted, Please refresh the page")
+        ui.notify("Images & History deleted, Please refresh the page",position="top")
     def get_pixel(x_coord,y_coord):
         print(ii.source)
         try:
@@ -119,8 +138,10 @@ async def main_page():
         g=pixel_color[1]
         b=pixel_color[2]
         print(f"\033[38;2;{r};{g};{b}mHello!\033[0m")
-        ui.notify(f"The color of the pixel at ({x_coord}, {y_coord}) is: {pixel_color}")
+        #ui.notify(f"The color of the pixel at ({x_coord}, {y_coord}) is: {pixel_color}")
         color_input.set_value('#%02x%02x%02x' % (r, g, b))
+        lc = color_input.value
+        label_color.style(f'color:{lc}')
 
     def handle_image_click(e: events.MouseEventArguments):
         get_pixel(e.image_x,e.image_y)
@@ -128,6 +149,9 @@ async def main_page():
     def view_report():
         panels.set_value(tab_report)
         show_report.refresh()
+    def update_image_color(color):
+        #color_input.value = color
+        label_color.style(f'color:{color}')
 
     queue = Manager().Queue()
 
@@ -142,8 +166,6 @@ async def main_page():
 
     with ui.tab_panels(tabs, value=tab_capture).classes('w-full') as panels:
         with ui.tab_panel(tab_capture):
-            ui.label('Content of Tab One')
-
             ui.label('Take a picture with your phone')
 
             ui.upload(on_upload=handle_upload, auto_upload=True) \
@@ -155,21 +177,25 @@ async def main_page():
             
                     
         #    color_input = ui.color_input(label='Picked Color', on_change=lambda e: update_image_color(e.value))
-            color_input = ui.color_input(label='Picked Color')
-            gps = ui.input(label='GPS Coordinate', placeholder='GPS Coordinate',value="Pending")
+            color_input = ui.color_input(label='Picked Color', on_change=lambda e: update_image_color(e.value))
+            label_color = ui.label('Selected color looks like this')
+            with ui.row():
+                gps = ui.input(label='GPS Coordinate', placeholder='GPS Coordinate',value="Pending")
+                spinner = ui.spinner(size='lg')
+                spinner.visible = False
             ui.button('Save to Analyze', on_click=lambda: set_analysis(panels,tab_analyze))
 
         with ui.tab_panel(tab_analyze):
+            ui.label('Run Image Analysis')
             ui.timer(0.1, callback=lambda: progressbar.set_value(queue.get() if not queue.empty() else progressbar.value))
             # Create the UI
-            progressbar = ui.linear_progress(value=0).props('instant-feedback')
+            progressbar = ui.linear_progress(value=0,show_value=False).props('instant-feedback')
             #progressbar.visible = False
             va = ui.button('View Report', on_click=lambda: view_report())
             va.disable()
             ui.button('Analyze', on_click=lambda: start_computation(progressbar,va))
 
         with ui.tab_panel(tab_report):
-            ui.label('Report')
             show_report()
 
         with ui.tab_panel(tab_history):
