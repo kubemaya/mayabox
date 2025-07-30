@@ -214,9 +214,8 @@ async def main_page():
 
 ui.timer(5.0, show_history.refresh)
 
+#Use this line instead to generate the container
 #ui.run(host='0.0.0.0', port=8080, title='KAMIDAR')
 ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
 ssl_keyfile='key.pem', \
 ssl_certfile='cert.pem')
-#ui.run()
-
