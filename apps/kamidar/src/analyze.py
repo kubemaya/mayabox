@@ -44,7 +44,7 @@ def get_analysis():
         print("JSON data loaded")
         return data
     except FileNotFoundError:
-        print(f"Error: The file '{file_path}' was not found.")
+        print(f"Error: The file '{file}' was not found.")
     except json.JSONDecodeError:
         print(f"Error: Could not decode JSON from '{file}'. Check for a valid JSON file.")
     except Exception as e:

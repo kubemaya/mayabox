@@ -34,7 +34,10 @@ def show_report():
     ui.label('Analysis Report')
     data = get_analysis()
     ui.label("Original image")
-    img_original = ui.image(data["image_source"]).classes('w-64')
+    try:
+        img_original = ui.image(data["image_source"]).classes('w-64')
+    except:
+        print("Ignore image error when first time running")
     ui.label("Detected objects")
     try:
         img_analysis = ui.image(data["result"]["output_image"]).classes('w-64')
