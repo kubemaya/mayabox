@@ -216,6 +216,15 @@ ui.timer(5.0, show_history.refresh)
 
 #Use this line instead to generate the container
 #ui.run(host='0.0.0.0', port=8080, title='KAMIDAR')
-ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
-ssl_keyfile='key.pem', \
-ssl_certfile='cert.pem')
+os.environ["UVICORN_WORKERS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+ui.run(
+reload=False,
+native=False,
+uvicorn_logging_level='warning',
+show=False,  # prevents chromium injection
+port=8080,
+title='KAMIDAR')
+#ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
+#ssl_keyfile='key.pem', \
+#ssl_certfile='cert.pem')
