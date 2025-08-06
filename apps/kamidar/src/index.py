@@ -22,9 +22,9 @@ def show_history():
         {'name': 'longitude', 'label': 'Longitude', 'field': 'longitude'},
         {'name': 'image_source', 'label': 'Image Source', 'field': 'image_source'},
         {'name': 'output_image', 'label': 'Output Image', 'field': 'output_image'},
-        {'name': 'field1', 'label': 'Field1', 'field': 'field1'},
-        {'name': 'field2', 'label': 'Field2', 'field': 'field2'},
-        {'name': 'field3', 'label': 'Field3', 'field': 'field3'},
+        {'name': 'objects_detected', 'label': 'Objects Detected', 'field': 'objects_detected'},
+        {'name': 'color_analyzed', 'label': 'Color Analyzed', 'field': 'color_analyzed'},
+        {'name': 'contour_filtering', 'label': 'Contour Filtering', 'field': 'contour_filtering'},
     ]
     rows = get_reports()
     table = ui.table(columns=columns, rows=rows, row_key='image_source').classes('w-full')
@@ -43,10 +43,17 @@ def show_report():
         img_analysis = ui.image(data["result"]["output_image"]).classes('w-64')
         report = ui.log(max_lines=10).classes('w-full')
         report.push("Report Summary")
-        report.push("---------------")            
-        report.push("Field1: "+data["result"]["field1"])
-        report.push("Field2: "+data["result"]["field1"])
-        report.push("Field3: "+data["result"]["field1"])
+        report.push("---------------")
+        
+        # Handle both old field names and new descriptive names for backward compatibility
+        result = data["result"]
+        objects_detected = result.get("objects_detected", result.get("field1", "N/A"))
+        color_analyzed = result.get("color_analyzed", result.get("field2", "N/A"))
+        contour_filtering = result.get("contour_filtering", result.get("field3", "N/A"))
+        
+        report.push("Objects Detected: " + objects_detected)
+        report.push("Color Analyzed: " + color_analyzed)
+        report.push("Contour Filtering: " + contour_filtering)
         ui.button('Save Report',on_click=lambda: save_report())
     except:
         print("Error when loading history")
@@ -67,7 +74,30 @@ async def main_page():
         print(color_input.value)
         print(ii.source)
         gps_pos = gps.value.split(",")
-        store_analysis(gps_pos[0],gps_pos[1],color_input.value,ii.source,{})
+        
+        # Check if GPS coordinates are valid
+        if len(gps_pos) < 2 or gps.value == "Pending":
+            ui.notify("Please wait for GPS coordinates to load or enter them manually", type="warning")
+            return
+            
+        try:
+            latitude = float(gps_pos[0].strip())
+            longitude = float(gps_pos[1].strip())
+        except (ValueError, IndexError):
+            ui.notify("Invalid GPS coordinates format. Please use: latitude,longitude", type="error")
+            return
+            
+        # Check if image is loaded
+        if not ii.source or ii.source == "None":
+            ui.notify("Please upload an image first", type="warning")
+            return
+            
+        # Check if color is selected
+        if not color_input.value:
+            ui.notify("Please select a color from the image", type="warning")
+            return
+            
+        store_analysis(latitude, longitude, color_input.value, ii.source, {})
         panels.set_value(tab_analyze)
 
         #progressbar = ui.linear_progress(value=0).props('instant-feedback')
@@ -176,7 +206,7 @@ async def main_page():
                 .classes('w-full')
             ui.label('Pick a color from the picture')
             image_source = None 
-            ii = ui.interactive_image(image_source, on_mouse=handle_image_click,cross=True).classes('w-64')
+            ii = ui.interactive_image(image_source, on_mouse=handle_image_click,cross=True).classes('w-full')
             
                     
         #    color_input = ui.color_input(label='Picked Color', on_change=lambda e: update_image_color(e.value))
@@ -228,6 +258,6 @@ uvicorn_logging_level='warning',
 show=False,  # prevents chromium injection
 port=8080,
 title='KAMIDAR')
-#ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
-#ssl_keyfile='key.pem', \
-#ssl_certfile='cert.pem')
+# ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
+# ssl_keyfile='key.pem', \
+# ssl_certfile='cert.pem')
