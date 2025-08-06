@@ -45,8 +45,8 @@ def show_report():
         report.push("Report Summary")
         report.push("---------------")            
         report.push("Field1: "+data["result"]["field1"])
-        report.push("Field2: "+data["result"]["field1"])
-        report.push("Field3: "+data["result"]["field1"])
+        report.push("Field2: "+data["result"]["field2"])
+        report.push("Field3: "+data["result"]["field3"])
         ui.button('Save Report',on_click=lambda: save_report())
     except:
         print("Error when loading history")
@@ -67,7 +67,30 @@ async def main_page():
         print(color_input.value)
         print(ii.source)
         gps_pos = gps.value.split(",")
-        store_analysis(gps_pos[0],gps_pos[1],color_input.value,ii.source,{})
+        
+        # Check if GPS coordinates are valid
+        if len(gps_pos) < 2 or gps.value == "Pending":
+            ui.notify("Please wait for GPS coordinates to load or enter them manually", type="warning")
+            return
+            
+        try:
+            latitude = float(gps_pos[0].strip())
+            longitude = float(gps_pos[1].strip())
+        except (ValueError, IndexError):
+            ui.notify("Invalid GPS coordinates format. Please use: latitude,longitude", type="error")
+            return
+            
+        # Check if image is loaded
+        if not ii.source or ii.source == "None":
+            ui.notify("Please upload an image first", type="warning")
+            return
+            
+        # Check if color is selected
+        if not color_input.value:
+            ui.notify("Please select a color from the image", type="warning")
+            return
+            
+        store_analysis(latitude, longitude, color_input.value, ii.source, {})
         panels.set_value(tab_analyze)
 
         #progressbar = ui.linear_progress(value=0).props('instant-feedback')
@@ -221,13 +244,13 @@ ui.timer(5.0, show_history.refresh)
 #ui.run(host='0.0.0.0', port=8080, title='KAMIDAR')
 os.environ["UVICORN_WORKERS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
-ui.run(
-reload=False,
-native=False,
-uvicorn_logging_level='warning',
-show=False,  # prevents chromium injection
-port=8080,
-title='KAMIDAR')
-#ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
-#ssl_keyfile='key.pem', \
-#ssl_certfile='cert.pem')
+# ui.run(
+# reload=False,
+# native=False,
+# uvicorn_logging_level='warning',
+# show=False,  # prevents chromium injection
+# port=8080,
+# title='KAMIDAR')
+ui.run(host='0.0.0.0', port=8081, title='KAMIDAR', \
+ssl_keyfile='key.pem', \
+ssl_certfile='cert.pem')
