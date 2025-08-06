@@ -1,4 +1,3 @@
-import threading
 import time
 import os
 import cv2
@@ -41,7 +40,7 @@ def generate_color_range(hex_color, hue_offset=10, saturation_offset=50, value_o
     ])
     return lower_bound, upper_bound
 
-def filter_contours_by_aspect_ratio(contours, min_ratio=0.2, max_ratio=4.0, min_area=10, max_area=1000):
+def filter_contours_by_aspect_ratio(contours, min_ratio=0.2, max_ratio=4.0, min_area=100, max_area=20000):
     filtered_contours = []
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
@@ -63,14 +62,16 @@ def get_reports():
     fdata = []
     for exp in data:
         try:
+            # Handle both old field names and new descriptive names for backward compatibility
+            result = exp["result"]
             fdata.append({
                 "latitude":exp["latitude"],
                 "longitude":exp["longitude"],
                 "image_source":exp["image_source"],
-                "output_image":exp["result"]["output_image"],
-                "field1":exp["result"]["field1"],
-                "field2":exp["result"]["field2"],
-                "field3":exp["result"]["field3"],
+                "output_image":result.get("output_image", ""),
+                "objects_detected":result.get("objects_detected", result.get("field1", "")),
+                "color_analyzed":result.get("color_analyzed", result.get("field2", "")),
+                "contour_filtering":result.get("contour_filtering", result.get("field3", "")),
             })
         except:
             fdata.append({
@@ -78,9 +79,9 @@ def get_reports():
                 "longitude":exp["longitude"],
                 "image_source":exp["image_source"],
                 "output_image":"",
-                "field1":"",
-                "field2":"",
-                "field3":"",
+                "objects_detected":"",
+                "color_analyzed":"",
+                "contour_filtering":"",
             })
 
     return fdata
@@ -154,8 +155,6 @@ def analyze(q: Queue) -> str:
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         save_image(output_folder, 'hsv.png', hsv_image)
         
-        # Resize images for processing
-        original_resized = resize_image(image, 780, 540)
         
         step = 3
         q.put_nowait(step / steps)
@@ -163,8 +162,7 @@ def analyze(q: Queue) -> str:
         # Step 3: Generate color mask
         lower_bound, upper_bound = generate_color_range(color_to_detect, 10, 50, 50)
         mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
-        mask_resized = resize_image(mask, 780, 540)
-        save_image(output_folder, 'mask.png', mask_resized)
+        save_image(output_folder, 'mask.png', mask)
         
         step = 4
         q.put_nowait(step / steps)
@@ -173,7 +171,7 @@ def analyze(q: Queue) -> str:
         kernel = np.ones((5, 5), np.uint8)
         
         # Dilation
-        mask_dilated = cv2.dilate(mask_resized, kernel, iterations=1)
+        mask_dilated = cv2.dilate(mask, kernel, iterations=1)
         save_image(output_folder, 'dilated.png', mask_dilated)
         
         step = 5
@@ -201,7 +199,7 @@ def analyze(q: Queue) -> str:
         num_figures = len(filtered_contours)
         
         # Draw contours on original image
-        contour_image = original_resized.copy()
+        contour_image = image.copy()
         cv2.drawContours(contour_image, filtered_contours, -1, (0, 255, 0), 1)
         save_image(output_folder, 'contours.png', contour_image)
         
@@ -209,10 +207,12 @@ def analyze(q: Queue) -> str:
         final_image = contour_image.copy()
         
         # Add background rectangle for better text visibility
-        text = f'Cantidad de restos encontrados: {num_figures}'
-        font = cv2.FONT_HERSHEY_SIMPLEX
+        text = f'Fragments detected: {num_figures}'
+        font = cv2.FONT_HERSHEY_COMPLEX
         font_scale = 0.8
         thickness = 2
+        text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
+        text_width, text_height = text_size
         
         # Get text size to create background rectangle
         (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
@@ -235,9 +235,9 @@ def analyze(q: Queue) -> str:
         # Step 7: Prepare results
         result = {
             "output_image": final_result_path,
-            "field1": f"Objetos detectados: {num_figures}",
-            "field2": f"Color analizado: {color_to_detect}",
-            "field3": f"Contornos filtrados: {len(contours)} -> {num_figures}"
+            "objects_detected": f"{num_figures}",
+            "color_analyzed": f"{color_to_detect}",
+            "contour_filtering": f"{len(contours)} -> {num_figures}"
         }
         
         # Update analysis.json with results

@@ -22,9 +22,9 @@ def show_history():
         {'name': 'longitude', 'label': 'Longitude', 'field': 'longitude'},
         {'name': 'image_source', 'label': 'Image Source', 'field': 'image_source'},
         {'name': 'output_image', 'label': 'Output Image', 'field': 'output_image'},
-        {'name': 'field1', 'label': 'Field1', 'field': 'field1'},
-        {'name': 'field2', 'label': 'Field2', 'field': 'field2'},
-        {'name': 'field3', 'label': 'Field3', 'field': 'field3'},
+        {'name': 'objects_detected', 'label': 'Objects Detected', 'field': 'objects_detected'},
+        {'name': 'color_analyzed', 'label': 'Color Analyzed', 'field': 'color_analyzed'},
+        {'name': 'contour_filtering', 'label': 'Contour Filtering', 'field': 'contour_filtering'},
     ]
     rows = get_reports()
     table = ui.table(columns=columns, rows=rows, row_key='image_source').classes('w-full')
@@ -43,10 +43,17 @@ def show_report():
         img_analysis = ui.image(data["result"]["output_image"]).classes('w-64')
         report = ui.log(max_lines=10).classes('w-full')
         report.push("Report Summary")
-        report.push("---------------")            
-        report.push("Field1: "+data["result"]["field1"])
-        report.push("Field2: "+data["result"]["field2"])
-        report.push("Field3: "+data["result"]["field3"])
+        report.push("---------------")
+        
+        # Handle both old field names and new descriptive names for backward compatibility
+        result = data["result"]
+        objects_detected = result.get("objects_detected", result.get("field1", "N/A"))
+        color_analyzed = result.get("color_analyzed", result.get("field2", "N/A"))
+        contour_filtering = result.get("contour_filtering", result.get("field3", "N/A"))
+        
+        report.push("Objects Detected: " + objects_detected)
+        report.push("Color Analyzed: " + color_analyzed)
+        report.push("Contour Filtering: " + contour_filtering)
         ui.button('Save Report',on_click=lambda: save_report())
     except:
         print("Error when loading history")
