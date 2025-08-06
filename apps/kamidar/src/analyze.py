@@ -32,12 +32,14 @@ def generate_color_range(hex_color, hue_offset=10, saturation_offset=50, value_o
         max(0, base_hsv[0] - hue_offset), 
         max(0, base_hsv[1] - saturation_offset),
         max(0, base_hsv[2] - value_offset)
-    ])
+    ], dtype=np.uint8)
+    
     upper_bound = np.array([
         min(179, base_hsv[0] + hue_offset),
         min(255, base_hsv[1] + saturation_offset),
         min(255, base_hsv[2] + value_offset)
-    ])
+    ], dtype=np.uint8)
+    
     return lower_bound, upper_bound
 
 def filter_contours_by_aspect_ratio(contours, min_ratio=0.2, max_ratio=4.0, min_area=100, max_area=20000):
@@ -160,7 +162,7 @@ def analyze(q: Queue) -> str:
         q.put_nowait(step / steps)
         
         # Step 3: Generate color mask
-        lower_bound, upper_bound = generate_color_range(color_to_detect, 10, 50, 50)
+        lower_bound, upper_bound = generate_color_range(color_to_detect, hue_offset=5, saturation_offset=25, value_offset=25)
         mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
         save_image(output_folder, 'mask.png', mask)
         
@@ -184,12 +186,25 @@ def analyze(q: Queue) -> str:
         # Gaussian smoothing
         mask_smoothed = cv2.GaussianBlur(mask_eroded, (5, 5), 0)
         save_image(output_folder, 'smooth.png', mask_smoothed)
-        
+
+        sobel_x = cv2.Sobel(mask_smoothed, cv2.CV_64F, 1, 0, ksize=3)
+        sobel_y = cv2.Sobel(mask_smoothed, cv2.CV_64F, 0, 1, ksize=3)
+        sobel_combined = cv2.magnitude(sobel_x, sobel_y)
+        sobel_combined = np.uint8(np.clip(sobel_combined, 0, 255))
+        save_image(output_folder, 'sobel_edges.png', sobel_combined)
+
+        # Laplacian edge detection
+        laplacian = cv2.Laplacian(mask_smoothed, cv2.CV_64F)
+        laplacian = np.uint8(np.clip(np.absolute(laplacian), 0, 255))
+        save_image(output_folder, 'laplacian_edges.png', laplacian)
+
+        edge_mask = laplacian
+                
         step = 6
         q.put_nowait(step / steps)
         
         # Step 5: Find and filter contours
-        contours, _ = cv2.findContours(mask_smoothed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(edge_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         filtered_contours = filter_contours_by_aspect_ratio(contours)
         
         step = 7

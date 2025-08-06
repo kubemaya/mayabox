@@ -206,7 +206,7 @@ async def main_page():
                 .classes('w-full')
             ui.label('Pick a color from the picture')
             image_source = None 
-            ii = ui.interactive_image(image_source, on_mouse=handle_image_click,cross=True).classes('w-64')
+            ii = ui.interactive_image(image_source, on_mouse=handle_image_click,cross=True).classes('w-full')
             
                     
         #    color_input = ui.color_input(label='Picked Color', on_change=lambda e: update_image_color(e.value))
@@ -251,13 +251,13 @@ ui.timer(5.0, show_history.refresh)
 #ui.run(host='0.0.0.0', port=8080, title='KAMIDAR')
 os.environ["UVICORN_WORKERS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
-# ui.run(
-# reload=False,
-# native=False,
-# uvicorn_logging_level='warning',
-# show=False,  # prevents chromium injection
-# port=8080,
-# title='KAMIDAR')
-ui.run(host='0.0.0.0', port=8081, title='KAMIDAR', \
-ssl_keyfile='key.pem', \
-ssl_certfile='cert.pem')
+ui.run(
+reload=False,
+native=False,
+uvicorn_logging_level='warning',
+show=False,  # prevents chromium injection
+port=8080,
+title='KAMIDAR')
+# ui.run(host='0.0.0.0', port=8080, title='KAMIDAR', \
+# ssl_keyfile='key.pem', \
+# ssl_certfile='cert.pem')
