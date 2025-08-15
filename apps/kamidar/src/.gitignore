@@ -5,3 +5,6 @@ __pycache__
 *.db
 *.json
 results/
+old/
+new/
+env1/

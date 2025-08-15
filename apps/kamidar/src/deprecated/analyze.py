@@ -2,7 +2,8 @@ import time
 import os
 import cv2
 import numpy as np
-#from tinydb import TinyDB
+from tinydb import TinyDB
+from nicegui import ui
 from multiprocessing import Queue
 import json
 
@@ -117,11 +118,10 @@ def store_analysis(latitude,longitude,color_input,image_source,result):
     except TypeError as e:
         print(f"Error serializing data: {e}")
 
-#def analyze(q: Queue) -> str:
-def analyze(data):
+def analyze(q: Queue) -> str:
     try:
         # Get analysis data
-        #data = get_analysis()
+        data = get_analysis()
         if not data:
             return 'Error: No analysis data found'
         
@@ -131,9 +131,9 @@ def analyze(data):
         if not image_path or not os.path.exists(image_path):
             return 'Error: Image file not found'
         
-        #steps = 8
-        #step = 1
-        #q.put_nowait(step / steps)
+        steps = 8
+        step = 1
+        q.put_nowait(step / steps)
 
         # Check if results folder exists
         if not os.path.exists('./results'):
@@ -150,24 +150,24 @@ def analyze(data):
         if image is None:
             return f'Error: Could not load image from {image_path}'
         
-        #step = 2
-        #q.put_nowait(step / steps)
+        step = 2
+        q.put_nowait(step / steps)
         
         # Step 2: Convert to HSV and resize
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         save_image(output_folder, 'hsv.png', hsv_image)
         
         
-        #step = 3
-        #q.put_nowait(step / steps)
+        step = 3
+        q.put_nowait(step / steps)
         
         # Step 3: Generate color mask
         lower_bound, upper_bound = generate_color_range(color_to_detect, hue_offset=5, saturation_offset=25, value_offset=25)
         mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
         save_image(output_folder, 'mask.png', mask)
         
-        #step = 4
-        #q.put_nowait(step / steps)
+        step = 4
+        q.put_nowait(step / steps)
         
         # Step 4: Apply morphological operations
         kernel = np.ones((5, 5), np.uint8)
@@ -176,8 +176,8 @@ def analyze(data):
         mask_dilated = cv2.dilate(mask, kernel, iterations=1)
         save_image(output_folder, 'dilated.png', mask_dilated)
         
-        #step = 5
-        #q.put_nowait(step / steps)
+        step = 5
+        q.put_nowait(step / steps)
         
         # Erosion
         mask_eroded = cv2.erode(mask_dilated, kernel, iterations=1)
@@ -200,15 +200,15 @@ def analyze(data):
 
         edge_mask = laplacian
                 
-        #step = 6
-        #q.put_nowait(step / steps)
+        step = 6
+        q.put_nowait(step / steps)
         
         # Step 5: Find and filter contours
         contours, _ = cv2.findContours(edge_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         filtered_contours = filter_contours_by_aspect_ratio(contours)
         
-        #step = 7
-        #q.put_nowait(step / steps)
+        step = 7
+        q.put_nowait(step / steps)
         
         # Step 6: Count detected objects and create result image
         num_figures = len(filtered_contours)
@@ -244,8 +244,8 @@ def analyze(data):
         final_result_path = os.path.join(output_folder, final_result_filename)
         save_image(output_folder, final_result_filename, final_image)
         
-        #step = 8
-        #q.put_nowait(step / steps)
+        step = 8
+        q.put_nowait(step / steps)
         
         # Step 7: Prepare results
         result = {
@@ -255,12 +255,11 @@ def analyze(data):
             "contour_filtering": f"{len(contours)} -> {num_figures}"
         }
         
-        ## Update analysis.json with results
-        #store_analysis(data["latitude"], data["longitude"], data["color_input"], data["image_source"], result)
-       # 
-        #print(f'Analysis completed - Objects detected: {num_figures}')
-        #return 'Done!'
-        return result
+        # Update analysis.json with results
+        store_analysis(data["latitude"], data["longitude"], data["color_input"], data["image_source"], result)
+        
+        print(f'Analysis completed - Objects detected: {num_figures}')
+        return 'Done!'
         
     except Exception as e:
         print(f'Error during analysis: {str(e)}')
