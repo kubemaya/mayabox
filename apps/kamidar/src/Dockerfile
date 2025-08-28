@@ -25,7 +25,7 @@ RUN curl -LO https://dl.k8s.io/release/v1.32.3/bin/linux/${TARGETARCH}/kubectl
 RUN chmod +x kubectl
 
 ## Final image
-FROM python:3.12.11-alpine
+FROM python:3.12.11-alpine3.21
 WORKDIR /app
 ## Copy Go binary
 COPY --from=backend-builder /backend/kamidar .
