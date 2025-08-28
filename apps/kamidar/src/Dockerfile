@@ -28,7 +28,7 @@ RUN chmod +x kubectl
 FROM --platform=${TARGETOS}/${TARGETARCH} python:3.12.11-alpine
 WORKDIR /app
 ## Copy Go binary
-COPY --from=backend-builder /backend/mayaui .
+COPY --from=backend-builder /backend/kamidar .
 COPY --from=backend-builder /backend/requirements.txt .
 #COPY --from=backend-builder /backend/scripts /app/scripts
 COPY --from=backend-builder /backend/kubectl /sbin
