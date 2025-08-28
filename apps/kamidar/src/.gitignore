@@ -3,7 +3,6 @@ last*
 __pycache__
 *.pem
 *.db
-*.json
 results/
 old/
 new/
