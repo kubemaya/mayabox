@@ -25,13 +25,15 @@ RUN curl -LO https://dl.k8s.io/release/v1.32.3/bin/linux/${TARGETARCH}/kubectl
 RUN chmod +x kubectl
 
 ## Final image
-FROM --platform=${TARGETOS}/${TARGETARCH} python:3.12.11-alpine
+FROM python:3.12.11-alpine
 WORKDIR /app
 ## Copy Go binary
 COPY --from=backend-builder /backend/kamidar .
 COPY --from=backend-builder /backend/requirements.txt .
 #COPY --from=backend-builder /backend/scripts /app/scripts
 COPY --from=backend-builder /backend/kubectl /sbin
+RUN apk update
+RUN apk add build-base gcc python3-dev musl-dev linux-headers
 RUN pip install -r requirements.txt
 ## Copy built frontend static files
 COPY --from=build-stage /frontend/dist/spa /frontend/dist/spa
