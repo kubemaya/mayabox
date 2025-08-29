@@ -101,7 +101,10 @@ export default {
 
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        /*stream = await navigator.mediaDevices.getUserMedia({ video: true })*/
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: "environment" } } // Use rear camera
+        })
         if (video.value) {
           video.value.srcObject = stream
         }

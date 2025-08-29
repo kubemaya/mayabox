@@ -1,4 +1,3 @@
-
 # Build frontend (Vue.js/Quasar) first
 FROM node:22.18.0-alpine3.21 AS frontend-builder
 WORKDIR /frontend
@@ -15,13 +14,13 @@ FROM golang:1.24-alpine AS backend-builder
 ARG TARGETOS="linux"
 ARG TARGETARCH="amd64"
 WORKDIR /backend
-COPY backend/go.mod backend/go.sum ./
+COPY backend/go.mod backend/go.sum backend/analyze.py ./
 RUN go mod download
 COPY backend/ ./
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o kamidar .
+RUN go build -o kamidar .
 RUN apk update
 RUN apk add --no-cache curl
-RUN curl -LO https://dl.k8s.io/release/v1.32.3/bin/linux/${TARGETARCH}/kubectl
+RUN curl -LO https://dl.k8s.io/release/v1.32.3/bin/${TARGETOS}/${TARGETARCH}/kubectl
 RUN chmod +x kubectl
 
 ## Final image
@@ -29,8 +28,8 @@ FROM python:3.12.11-alpine3.21
 WORKDIR /app
 ## Copy Go binary
 COPY --from=backend-builder /backend/kamidar .
+COPY --from=backend-builder /backend/analyze.py .
 COPY --from=backend-builder /backend/requirements.txt .
-#COPY --from=backend-builder /backend/scripts /app/scripts
 COPY --from=backend-builder /backend/kubectl /sbin
 RUN apk update
 RUN apk add build-base gcc python3-dev musl-dev linux-headers
